@@ -52,6 +52,6 @@ fn main() {
         it2.set_direction(Direction::dakshin);
     }
 
-    matrix.free_
-
+    matrix.free_pos((2,3,4));
+    matrix.free_all(|n| n == &0);
 }

@@ -10,6 +10,8 @@ pub enum ContactUnit {
 #[derive(Debug)]
 pub(crate) struct Node<T> {
     data: T,
+    pub coord: (i32,i32,i32),
+
     // Make it Mutex, for multi-thread use
     // Way 2: Message passing, node sends index, GraphMat replies with node, but that is slow since blocks
     north: Option<IndexInArena>,
@@ -21,9 +23,10 @@ pub(crate) struct Node<T> {
 }
 
 impl<T> Node<T> {
-    pub fn new(data: T) -> Self {
+    pub fn new(data: T, coord: (i32,i32,i32)) -> Self {
         Node {
             data,
+            coord,
 
             north: None,
             east: None,

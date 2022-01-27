@@ -17,8 +17,8 @@ impl<T> GraphMat<T> {
     }
 
     // Note: This function does NOT modify `self.map`, do it in the other functions
-    fn allocate_one_node(&mut self, data: T) -> Index {
-        self.arena.insert(Node::new(data))
+    fn allocate_one_node(&mut self, data: T, coord: (i32, i32, i32)) -> Index {
+        self.arena.insert(Node::new(data, coord))
     }
 
     pub fn get<'a>(&'a self, coord: &(i32, i32, i32)) -> Option<&'a T> {
@@ -38,7 +38,7 @@ impl<T> GraphMat<T> {
     pub fn set(&mut self, coord: (i32, i32, i32), data: T) {
         match self.map.get(&coord) {
             None => {
-                let node = self.allocate_one_node(data);
+                let node = self.allocate_one_node(data, coord);
 
                 self.map.insert(coord, node);
             }
@@ -80,6 +80,66 @@ impl<T> GraphMat<T> {
             graphmat: self,
             curr_pos: starting_coord,
             curr_dir: starting_dir,
+        }
+    }
+
+    pub fn find(&self, value: &T) -> Option<(i32, i32, i32)>
+    where
+        T: PartialEq,
+    {
+        // Finding in self.map will be more costly given space optimisation is done there
+        // for eg. 100 nodes hai, 10 centers, to har center ke liye recursively search krna hoga
+        //         keeping track of all searched nodes, taaki loop me na phase
+        for (_, node) in self.arena.iter() {
+            if node.get() == value {
+                return Some(node.coord);
+            }
+        }
+
+        None
+    }
+
+    pub fn find_if<UnaryPredicate>(&self, pred: UnaryPredicate) -> Option<(i32, i32, i32)>
+    where
+        UnaryPredicate: Fn(&T) -> bool,
+    {
+        for (_, node) in self.arena.iter() {
+            if pred(node.get()) {
+                return Some(node.coord);
+            }
+        }
+
+        None
+    }
+
+    pub fn free_pos(&mut self, coord: (i32, i32, i32)) {
+        let index = self.map.get(&coord).clone();
+
+        if let Some(idx) = index {
+            let idx = idx.clone();
+            self.map.remove(&coord);
+            self.arena.remove(idx);
+        }
+    }
+
+    pub fn free_all<UnaryPredicate>(&mut self, predicate: UnaryPredicate)
+    where
+        UnaryPredicate: Fn(&T) -> bool,
+    {
+        let mut to_remove = Vec::new();
+        for (coord, idx) in self.map.iter() {
+            // SAFETY: Since, self.map contains the coordinate and corresponding `idx`,
+            // there must be some existing node at `idx`, so self.arena.get(idx) must return Some(node)
+            if predicate( self.arena.get(*idx).unwrap().get() ) {
+                to_remove.push( coord.clone() );
+            }
+        }
+
+        for coord in to_remove {
+            // SAFETY: `to_remove` was filled with self.map keys, so map.get must not fail
+            let idx = self.map.get(&coord).unwrap().clone();
+            self.arena.remove(idx);
+            self.map.remove(&coord);
         }
     }
 }
