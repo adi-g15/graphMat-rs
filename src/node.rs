@@ -1,57 +1,64 @@
-use std::sync::mpsc::Sender;
+use generational_arena::Index as IndexInArena;
 
 use crate::direction::Direction;
-use crate::graphmat::{GraphMat, self};
 
 pub enum ContactUnit {
-    NewBox((u32,u32,u32))
+    NewBox((u32, u32, u32)),
 }
 
+// Node is an internal type, caller should not directly read it
 #[derive(Debug)]
-pub struct Node<T> {
-    pub data: T,
-
-    // WARNING: When using this, remove yourself from being a mutable borrow
-    mpsc_tx: Sender<ContactUnit>,
-
-    north: usize,
-    east: usize,
-    west: usize,
-    south: usize,
-    sky: usize,
-    earth: usize,
-
-    // now directions according to our texts
-    ishanya: usize,
-    agneya: usize,
-    nairutya: usize,
-    vayavya: usize,
-    urdhwa: usize
+pub(crate) struct Node<T> {
+    data: T,
+    // Make it Mutex, for multi-thread use
+    // Way 2: Message passing, node sends index, GraphMat replies with node, but that is slow since blocks
+    north: Option<IndexInArena>,
+    east: Option<IndexInArena>,
+    west: Option<IndexInArena>,
+    south: Option<IndexInArena>,
+    sky: Option<IndexInArena>,
+    earth: Option<IndexInArena>,
 }
 
-impl<'a, T> Node<T> {
-    pub fn new(data: T, mpsc_tx: Sender<ContactUnit> ) -> Self {
+impl<T> Node<T> {
+    pub fn new(data: T) -> Self {
         Node {
             data,
-            mpsc_tx,
 
-            north: 0,
-            east: 0,
-            west: 0,
-            south: 0,
-            sky: 0,
-            earth: 0,
-
-            ishanya: 0,
-            agneya: 0,
-            nairutya: 0,
-            vayavya: 0,
-            urdhwa: 0
+            north: None,
+            east: None,
+            west: None,
+            south: None,
+            sky: None,
+            earth: None,
         }
+    }
+
+    pub fn get<'a>(&'a self) -> &'a T {
+        &self.data
+    }
+
+    pub fn get_mut<'a>(&'a mut self) -> &'a mut T {
+        &mut self.data
     }
 
     pub fn set(&mut self, data: T) {
         self.data = data;
+    }
+
+    /*pub(in crate::graphmat)*/
+    pub(crate) fn set_neighbour(&mut self, dir: Direction, node_idx: IndexInArena) {
+        match dir {
+            Direction::uttar => self.north,
+            Direction::purva => self.east,
+            Direction::paschim => self.west,
+            Direction::dakshin => self.south,
+
+            Direction::urdhwa => self.sky,
+            Direction::adharastha => self.earth,
+
+            _ => panic!("Can only assign direct neighbours"),
+        }.replace(node_idx);
     }
     /*
     fn get_neighbour_index(dir: Direction) {
@@ -70,4 +77,3 @@ impl<'a, T> Node<T> {
     }
     */
 }
-
