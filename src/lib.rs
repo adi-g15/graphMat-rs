@@ -111,7 +111,7 @@ fn matrix_iterator() {
         }
     }
 
-    // Iterator 'slightly' faster
+    // Iterator 'significantly' faster (currently in some directions, it is just an O(1) access)
     for j in 0..99 {
         for k in 0..99 {
             let mut it = matrix.iter::<{ Direction::purva }>((0, j, k));

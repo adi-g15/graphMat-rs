@@ -1,11 +1,11 @@
 use crate::iterators::{GraphMatFreeIterator, GraphMatIterator};
 use crate::{direction::Direction, node::Node};
-use generational_arena::{Arena, Index};
+use generational_arena::{Arena, Index as IndexInArena};
 use std::collections::HashMap;
 
 pub struct GraphMat<T> {
     pub(crate) arena: Arena<Node<T>>,
-    map: HashMap<(i32, i32, i32), Index>,
+    map: HashMap<(i32, i32, i32), IndexInArena>,
 }
 
 impl<T> GraphMat<T> {
@@ -17,16 +17,16 @@ impl<T> GraphMat<T> {
     }
 
     // Note: This function does NOT modify `self.map`, do it in the other functions
-    fn allocate_one_node(&mut self, data: T, coord: (i32, i32, i32)) -> Index {
+    fn allocate_one_node(&mut self, data: T, coord: (i32, i32, i32)) ->IndexInArena{
         self.arena.insert(Node::new(Some(data), coord))
     }
 
     // Note: This function does NOT modify `self.map`, do it in the other functions
-    fn default_allocate_one_node(&mut self, coord: (i32, i32, i32)) -> Index {
+    fn default_allocate_one_node(&mut self, coord: (i32, i32, i32)) ->IndexInArena{
         self.arena.insert(Node::new(None, coord))
     }
 
-    pub fn get<'a>(&'a self, coord: (i32, i32, i32)) -> Option<&'a T> {
+    pub fn get_node_index(&self, coord: (i32, i32, i32)) -> Option<IndexInArena> {
         // let leader_coord = ((coord.0 / 2) * 2, (coord.1 / 2) * 2, (coord.2 / 2) * 2);
         let leader_coord = (
             if coord.0 % 2 == 0 { coord.0 } else { coord.0 - 1 },
@@ -35,13 +35,7 @@ impl<T> GraphMat<T> {
         );
 
         if coord == leader_coord {
-            return match self.map.get(&coord) {
-                None => None,
-                Some(node_idx) => {
-                    // SAFETY: If self.map says this index refers to a node, it must be allocated in self.arena
-                    self.arena.get(*node_idx).unwrap().get()
-                }
-            };
+            return match self.map.get(&coord) { None => None, Some(idx) => Some(*idx) };
         }
 
         let leader = match self.map.get(&leader_coord) {
@@ -60,132 +54,55 @@ impl<T> GraphMat<T> {
             coord.2 - leader_coord.2,
         );
         match diff {
-            (1, 0, 0) => {
-                // east
-                match leader.east {
-                    None => {
-                        return None;
-                    }
-                    Some(idx) => {
-                        // SAFETY: If a node says this index refers to a neighbour node, it must be allocated in self.arena
-                        self.arena.get(idx).unwrap().get()
-                    }
-                }
-            }
-            (0, 1, 0) => {
-                // north
-                match leader.north {
-                    None => {
-                        return None;
-                    }
-                    Some(idx) => {
-                        // SAFETY: If a node says this index refers to a neighbour node, it must be allocated in self.arena
-                        self.arena.get(idx).unwrap().get()
-                    }
-                }
-            }
-            (0, 0, 1) => {
-                // sky
-                match leader.sky {
-                    None => {
-                        return None;
-                    }
-                    Some(idx) => {
-                        // SAFETY: If a node says this index refers to a neighbour node, it must be allocated in self.arena
-                        self.arena.get(idx).unwrap().get()
-                    }
-                }
-            }
+            (1, 0, 0) => leader.east,
+            (0, 1, 0) => leader.north,
+            (0, 0, 1) => leader.sky,
             (0, 1, 1) => {
                 // north-sky
                 match leader.north {
-                    None => {
-                        return None;
-                    }
+                    None => None,
                     Some(idx) => {
                         // SAFETY: If a node says this index refers to a neighbour node, it must be allocated in self.arena
-                        match self.arena.get(idx).unwrap().sky {
-                            None => {
-                                return None;
-                            }
-                            Some(idx) => {
-                                // SAFETY: If a node says this index refers to a neighbour node, it must be allocated in self.arena
-                                self.arena.get(idx).unwrap().get()
-                            }
-                        }
+                        self.arena.get(idx).unwrap().sky
                     }
                 }
-            }
+            },
             (1, 0, 1) => {
                 // east-sky
                 match leader.east {
-                    None => {
-                        return None;
-                    }
+                    None => None,
                     Some(idx) => {
                         // SAFETY: If a node says this index refers to a neighbour node, it must be allocated in self.arena
-                        match self.arena.get(idx).unwrap().sky {
-                            None => {
-                                return None;
-                            }
-                            Some(idx) => {
-                                // SAFETY: If a node says this index refers to a neighbour node, it must be allocated in self.arena
-                                self.arena.get(idx).unwrap().get()
-                            }
-                        }
+                        self.arena.get(idx).unwrap().sky
                     }
                 }
-
-            }
+            },
             (1, 1, 0) => {
                 // north-east
                 match leader.north {
-                    None => {
-                        return None;
-                    }
+                    None => None,
                     Some(idx) => {
                         // SAFETY: If a node says this index refers to a neighbour node, it must be allocated in self.arena
-                        match self.arena.get(idx).unwrap().east {
-                            None => {
-                                return None;
-                            }
-                            Some(idx) => {
-                                // SAFETY: If a node says this index refers to a neighbour node, it must be allocated in self.arena
-                                self.arena.get(idx).unwrap().get()
-                            }
-                        }
+                        self.arena.get(idx).unwrap().east
                     }
                 }
-
-            }
+            },
             (1, 1, 1) => {
                 // north-east-sky
                 match leader.north {
-                    None => {
-                        return None;
-                    }
+                    None => None,
                     Some(idx) => {
                         // SAFETY: If a node says this index refers to a neighbour node, it must be allocated in self.arena
                         match self.arena.get(idx).unwrap().east {
-                            None => {
-                                return None;
-                            }
+                            None => None,
                             Some(idx) => {
                                 // SAFETY: If a node says this index refers to a neighbour node, it must be allocated in self.arena
-                                match self.arena.get(idx).unwrap().sky {
-                                    None => {
-                                        return None;
-                                    }
-                                    Some(idx) => {
-                                        // SAFETY: If a node says this index refers to a neighbour node, it must be allocated in self.arena
-                                        self.arena.get(idx).unwrap().get()
-                                    }
-                                }
+                                self.arena.get(idx).unwrap().sky
                             }
                         }
                     }
                 }
-            }
+            },
 
             _ => {
                 panic!(
@@ -193,177 +110,22 @@ impl<T> GraphMat<T> {
                     coord, leader_coord
                 );
             }
+        }
+    }
+
+    pub fn get<'a>(&'a self, coord: (i32, i32, i32)) -> Option<&'a T> {
+        match self.get_node_index(coord) {
+            None => None,
+            // SAFETY: get_node_index returned an index to the node, so self.arena must have it
+            Some(idx) => self.arena.get(idx).unwrap().get()
         }
     }
 
     pub fn get_mut<'a>(&'a mut self, coord: (i32, i32, i32)) -> Option<&'a mut T> {
-        let leader_coord = (
-            if coord.0 % 2 == 0 { coord.0 } else { coord.0 - 1 },
-            if coord.1 % 2 == 0 { coord.1 } else { coord.1 - 1 },
-            if coord.2 % 2 == 0 { coord.2 } else { coord.2 - 1 }
-        );
-
-        // let leader_coord = ((coord.0 / 2) * 2, (coord.1 / 2) * 2, (coord.2 / 2) * 2);
-
-        if coord == leader_coord {
-            return match self.map.get(&coord) {
-                None => None,
-                Some(node_idx) => {
-                    // SAFETY: If self.map says this index refers to a node, it must be allocated in self.arena
-                    self.arena.get_mut(*node_idx).unwrap().get_mut()
-                }
-            };
-        }
-
-        let leader = match self.map.get(&leader_coord) {
-            None => {
-                return None;
-            }
-            Some(idx) => {
-                // SAFETY: If self.map says this index refers to a node, it must be allocated in self.arena
-                self.arena.get(*idx).unwrap()
-            }
-        };
-
-        let diff = (
-            coord.0 - leader_coord.0,
-            coord.1 - leader_coord.1,
-            coord.2 - leader_coord.2,
-        );
-        match diff {
-            (1, 0, 0) => {
-                // east
-                match leader.east {
-                    None => {
-                        return None;
-                    }
-                    Some(idx) => {
-                        // SAFETY: If a node says this index refers to a neighbour node, it must be allocated in self.arena
-                        self.arena.get_mut(idx).unwrap().get_mut()
-                    }
-                }
-            }
-            (0, 1, 0) => {
-                // north
-                match leader.north {
-                    None => {
-                        return None;
-                    }
-                    Some(idx) => {
-                        // SAFETY: If a node says this index refers to a neighbour node, it must be allocated in self.arena
-                        self.arena.get_mut(idx).unwrap().get_mut()
-                    }
-                }
-            }
-            (0, 0, 1) => {
-                // sky
-                match leader.sky {
-                    None => {
-                        return None;
-                    }
-                    Some(idx) => {
-                        // SAFETY: If a node says this index refers to a neighbour node, it must be allocated in self.arena
-                        self.arena.get_mut(idx).unwrap().get_mut()
-                    }
-                }
-            }
-            (0, 1, 1) => {
-                // north-sky
-                match leader.north {
-                    None => {
-                        return None;
-                    }
-                    Some(idx) => {
-                        // SAFETY: If a node says this index refers to a neighbour node, it must be allocated in self.arena
-                        match self.arena.get(idx).unwrap().sky {
-                            None => {
-                                return None;
-                            }
-                            Some(idx) => {
-                                // SAFETY: If a node says this index refers to a neighbour node, it must be allocated in self.arena
-                                self.arena.get_mut(idx).unwrap().get_mut()
-                            }
-                        }
-                    }
-                }
-            }
-            (1, 0, 1) => {
-                // east-sky
-                match leader.east {
-                    None => {
-                        return None;
-                    }
-                    Some(idx) => {
-                        // SAFETY: If a node says this index refers to a neighbour node, it must be allocated in self.arena
-                        match self.arena.get(idx).unwrap().sky {
-                            None => {
-                                return None;
-                            }
-                            Some(idx) => {
-                                // SAFETY: If a node says this index refers to a neighbour node, it must be allocated in self.arena
-                                self.arena.get_mut(idx).unwrap().get_mut()
-                            }
-                        }
-                    }
-                }
-
-            }
-            (1, 1, 0) => {
-                // north-east
-                match leader.north {
-                    None => {
-                        return None;
-                    }
-                    Some(idx) => {
-                        // SAFETY: If a node says this index refers to a neighbour node, it must be allocated in self.arena
-                        match self.arena.get(idx).unwrap().east {
-                            None => {
-                                return None;
-                            }
-                            Some(idx) => {
-                                // SAFETY: If a node says this index refers to a neighbour node, it must be allocated in self.arena
-                                self.arena.get_mut(idx).unwrap().get_mut()
-                            }
-                        }
-                    }
-                }
-
-            }
-            (1, 1, 1) => {
-                // north-east-sky
-                match leader.north {
-                    None => {
-                        return None;
-                    }
-                    Some(idx) => {
-                        // SAFETY: If a node says this index refers to a neighbour node, it must be allocated in self.arena
-                        match self.arena.get(idx).unwrap().east {
-                            None => {
-                                return None;
-                            }
-                            Some(idx) => {
-                                // SAFETY: If a node says this index refers to a neighbour node, it must be allocated in self.arena
-                                match self.arena.get(idx).unwrap().sky {
-                                    None => {
-                                        return None;
-                                    }
-                                    Some(idx) => {
-                                        // SAFETY: If a node says this index refers to a neighbour node, it must be allocated in self.arena
-                                        self.arena.get_mut(idx).unwrap().get_mut()
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            _ => {
-                panic!(
-                    "Invalid direction, coord {:?} is probably not a neighbour of {:?}",
-                    coord, leader_coord
-                );
-            }
+         match self.get_node_index(coord) {
+            None => None,
+            // SAFETY: get_node_index returned an index to the node, so self.arena must have it
+            Some(idx) => self.arena.get_mut(idx).unwrap().get_mut()
         }
     }
 
@@ -373,7 +135,7 @@ impl<T> GraphMat<T> {
             if coord.1 % 2 == 0 { coord.1 } else { coord.1 - 1 },
             if coord.2 % 2 == 0 { coord.2 } else { coord.2 - 1 }
         );
-        // !(maybe unncecessary) Optimisation, same result as above (REQUIRED: index is unsigned, for eg. for (-1,0,0) it will say leader is (0,0,0) which is wrong, it should be (-2,0,0))
+        // !(maybe unncecessary) Optimisation "for unsigned indices", same result as above (REQUIRED: index is unsigned)
         // let leader_coord = ((coord.0 / 2) * 2, (coord.1 / 2) * 2, (coord.2 / 2) * 2);
 
         if coord == leader_coord {
@@ -651,6 +413,7 @@ impl<T> GraphMat<T> {
         starting_coord: (i32, i32, i32),
     ) -> GraphMatIterator<'a, T, DIR> {
         GraphMatIterator {
+            curr_node_idx: self.get_node_index(starting_coord),
             graphmat: self,
             curr_pos: starting_coord,
         }
@@ -668,6 +431,7 @@ impl<T> GraphMat<T> {
         starting_dir: Direction,
     ) -> GraphMatFreeIterator<'a, T> {
         GraphMatFreeIterator {
+            curr_node_idx: self.get_node_index(starting_coord),
             graphmat: self,
             curr_pos: starting_coord,
             curr_dir: starting_dir,

@@ -63,6 +63,8 @@ Cons:
 
 ### The 'leader' concept
 
+![](./leader-node.png)
+
 The way i implemented it as sparse is, it keeps a HashMap of keys as coordinate, and value is the Node
 
 But, this can't be done for all nodes, else it is just a HashMap of coordinates to data, no real benefit.
