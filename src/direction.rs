@@ -1,4 +1,6 @@
 #[allow(non_camel_case_types)]
+#[allow(unused)]
+
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum Direction {
     uttar,   // north

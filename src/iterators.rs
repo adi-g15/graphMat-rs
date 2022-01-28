@@ -30,7 +30,7 @@ impl<'a, T> GraphMatFreeIterator<'a, T> {
 
 impl<'a, T> GraphMatFreeIterator<'a, T> {
     pub fn next<'b>(&'b mut self) -> Option<((i32,i32,i32), &'b T)> {
-        let prev_element = self.graphmat.get(&self.curr_pos);
+        let prev_element = self.graphmat.get(self.curr_pos);
         let prev_pos = self.curr_pos.clone();
 
         self.curr_pos = match self.curr_dir {
@@ -65,7 +65,7 @@ impl<'a, T> GraphMatFreeIterator<'a, T> {
     }
 }
 
-pub struct GraphMatIterator<'a, T, const dir: Direction> {
+pub struct GraphMatIterator<'a, T, const DIR: Direction> {
     pub(crate) graphmat: &'a mut GraphMat<T>,
     pub curr_pos: (i32, i32, i32),
 }
@@ -78,8 +78,9 @@ pub struct GraphMatIterator<'a, T, const dir: Direction> {
 // Can just try to see that error
 impl<'a, T, const DIR: Direction> GraphMatIterator<'a, T, DIR> {
     pub fn next<'b>(&'b mut self) -> Option<((i32,i32,i32), &'b T)> {
+        // TODO: There is HUGE scope of improvement here, instead of using graphmat.get() for coords, instead use the node to get neighbours
         let prev_pos = self.curr_pos.clone();
-        let prev_element = self.graphmat.get(&prev_pos);
+        let prev_element = self.graphmat.get(prev_pos);
 
         self.curr_pos = match DIR {
             Direction::uttar =>
